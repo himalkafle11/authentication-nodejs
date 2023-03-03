@@ -1,6 +1,10 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+require("dotenv").config();
+
 mongoose
-  .connect("mongodb://127.0.0.1:27017/authentication")
+  .connect(process.env.DB)
   .then(() => {
     console.log("connection successfull");
   })
@@ -26,6 +30,34 @@ const schema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  confpassword: {
+    type: String,
+    required: true,
+  },
+  tokens: [
+    {
+      token: {
+        type: String,
+        required: true,
+      },
+    },
+  ],
+});
+
+schema.methods.generateToken = async function () {
+  try {
+    const tokenUser = jwt.sign({ _id: this._id.toString() }, process.env.KEY);
+    this.tokens = this.tokens.concat({ token: tokenUser });
+    await this.save();
+    return tokenUser;
+  } catch (error) {}
+};
+
+schema.pre("save", async function (next) {
+  if (this.isModified("password")) {
+    this.password = await bcrypt.hash(this.password, 10);
+  }
+  next();
 });
 
 const userModel = mongoose.model("userDetails", schema);
